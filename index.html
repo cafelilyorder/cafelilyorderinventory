@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vendor Purchase Order → PDF</title>
+  <style>
+    :root{--pad:12px;--radius:12px}
+    body{font-family:Arial, sans-serif;background:#f4f4f9;margin:0;padding:20px;line-height:1.45}
+    .container{max-width:980px;margin:auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+    h1{margin:0 0 10px;font-size:22px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .toolbar label{font-weight:bold}
+    .toolbar .spacer{flex:1}
+    .filter{flex:1;min-width:220px}
+
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    table th, table td{border:1px solid #e5e5e5;padding:10px;text-align:left;vertical-align:top}
+    table th{background:#2f3a4a;color:#fff;position:sticky;top:0;z-index:1}
+    input[type=number]{width:100%;padding:12px;border:1px solid #ccc;border-radius:8px;font-size:16px}
+    input[readonly]{background:#eee}
+    .btn{padding:12px 16px;border:none;border-radius:10px;cursor:pointer;font-weight:600}
+    .btn-primary{background:#28a745;color:#fff}
+    .btn-secondary{background:#0069d9;color:#fff}
+    .btn.sticky{position:sticky;bottom:0;width:100%;box-shadow:0 -2px 8px rgba(0,0,0,.08);margin-top:10px}
+    .status{margin-top:12px;padding:10px;border-radius:10px;font-size:14px}
+
+    /* 📱 Mobile: turn table rows into cards */
+    @media (max-width: 720px){
+      table thead{display:none}
+      table, tbody, tr, td{display:block;width:100%}
+      tbody tr{background:#fff;border:1px solid #eee;border-radius:14px;box-shadow:0 1px 6px rgba(0,0,0,.06);padding:8px;margin:10px 0}
+      tbody td{border:none;border-bottom:1px dashed #eee;padding:8px 6px;display:flex;gap:8px;justify-content:space-between;align-items:flex-start}
+      tbody td:last-child{border-bottom:none}
+      tbody td::before{content:attr(data-label);font-weight:700;color:#374151;padding-right:10px;flex:0 0 48%}
+      tbody td > *{flex:1}
+      .btn.sticky{position:static;width:100%}
+      .toolbar{position:sticky;top:0;background:#fff;padding-bottom:8px;z-index:2}
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Vendor Purchase Order → Auto-PDF</h1>
+  <form id="poForm">
+    <div class="toolbar">
+      <label for="vendor">Vendor:</label>
+      <select id="vendor">
+        <option value="royal">Royal</option>
+        <option value="meats">Meats</option>
+        <option value="sysco">Sysco</option>
+        <option value="igf">IGF</option>
+      </select>
+      <div class="spacer"></div>
+      <input id="filter" class="filter" type="search" placeholder="Filter items… (e.g., onions, salmon)" />
+    </div>
+    <table id="itemsTable">
+      <thead>
+        <tr id="tableHead"></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button type="submit" class="btn btn-primary sticky">Submit & Download PDF</button>
+    <button type="button" id="shareBtn" class="btn btn-secondary sticky">Share via Text</button>
+    <div id="testStatus" class="status"></div>
+  </form>
+</div>
+
+<!-- Libraries MUST load without inline code -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+
+<script>
+// ──────────────────────────────────────────────────────────────────────────────
+// Error trap: show on-screen message instead of blank page
+// ──────────────────────────────────────────────────────────────────────────────
+(function(){
+  function showError(msg){
+    var el=document.getElementById('testStatus');
+    if(!el){ el=document.createElement('div'); el.id='testStatus'; el.className='status'; document.body.appendChild(el); }
+    el.textContent='Error: '+msg;
+    el.style.color='#721c24'; el.style.background='#f8d7da'; el.style.border='1px solid #f5c6cb';
+  }
+  window.addEventListener('error',e=>showError(e.message));
+  window.addEventListener('unhandledrejection',e=>showError((e.reason&&e.reason.message)||String(e.reason)));
+})();
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Inventory data (as provided)
+// ──────────────────────────────────────────────────────────────────────────────
+const INVENTORY = {
+  royal: [
+    {name:"Onions, Jumbo Sweet(Vidalias)", pack:"25# Bag", minPar:"1/2 case", weekendPar:"1/2 case"},
+    {name:"Onions, Jumbo Yellow",        pack:"25# Bag", minPar:"1/2 case", weekendPar:"1/2 case"},
+    {name:"Onions, Red",                 pack:"5#",      minPar:"3 onions", weekendPar:"5#"},
+    {name:"Potatoes, Red A",             pack:"50# bag", minPar:"1/2 case", weekendPar:"1 case"},
+    {name:"Arugula, Baby",               pack:"3# cs",   minPar:"1/2 case", weekendPar:"1 case"},
+    {name:"Asparagus, Standard",         pack:"11 lb case", minPar:"1/4 case", weekendPar:"1 case"},
+    {name:"Garlic, Whole Peeled",        pack:"5# jar",  minPar:"1/2 case", weekendPar:"1 case"},
+    {name:"Mushrooms, Shitake",          pack:"3# cs",   minPar:"1/2 case", weekendPar:"1 case"},
+    {name:"Salad Mix",                   pack:"3# cs",   minPar:"1 case",   weekendPar:"2 cases"},
+    {name:"Shallots, Large",             pack:"5 lb bag",minPar:"1/4 case", weekendPar:"1/2 case"},
+    {name:"Spinach, Baby",               pack:"3 lb case", minPar:"1 case", weekendPar:"2 cases"},
+    {name:"Beets",                        pack:"25 lb bag", minPar:"1/2 case", weekendPar:"1/2 case"},
+    {name:"Bell Pepper, Red",            pack:"5#",      minPar:"2.5#",     weekendPar:"1 case"},
+    {name:"Bell Pepper, Yellow",         pack:"5#",      minPar:"2.5#",     weekendPar:"1 case"},
+    {name:"French Beans (check prep!)",  pack:"5#",      minPar:"2.5#",     weekendPar:"1 case"},
+    {name:"Cucumber, Fancy",             pack:"12 ct case", minPar:"4 cucumbers", weekendPar:"1/2 case"},
+    {name:"Green Onions",                pack:"12 ct case", minPar:"12 ct", weekendPar:"12 ct"},
+    {name:"Habaneros",                   pack:"1#",      minPar:"1",        weekendPar:"1"},
+    {name:"Tomato, Ripe Roma",           pack:"25# cs",  minPar:"1/2 case", weekendPar:"1 case"},
+    {name:"Japanese Sweet Pots",         pack:"40# cs",  minPar:"1/4 case", weekendPar:"1/4 case"},
+    {name:"Zucchini, Fancy",             pack:"25# cs",  minPar:"1/4 case", weekendPar:"1/2 case"},
+    {name:"Eggplant, Medium",            pack:"25# cs",  minPar:"Order after checking nana's eggplant", weekendPar:""},
+    {name:"Lettuce, Romaine Hearts",     pack:"48 ct cs",minPar:"1/2 case", weekendPar:"1 case"},
+    {name:"Parsley, Italian",            pack:"3 bunch bag", minPar:"2 bags", weekendPar:"2 bags"},
+    {name:"Honeydew (Thursday only)",    pack:"ea, lg ripe", minPar:"2",    weekendPar:"2"},
+    {name:"Seedless Watermelon (Thu)",   pack:"ea, lg",  minPar:"1",        weekendPar:"1"},
+    {name:"Lemon Juice",                 pack:"1 qt",    minPar:"6",        weekendPar:"6"},
+    {name:"Lime Juice",                  pack:"1 qt",    minPar:"2",        weekendPar:"2"},
+    {name:"Lemons, 200ct",               pack:"1 cs",    minPar:"1/4 case", weekendPar:"1/2 case"},
+    {name:"Limes, SMALL",                pack:"1#",      minPar:"1/2 case", weekendPar:"1 case"},
+    {name:"Oranges, Navel, 56-ct seedless", pack:"1 cs", minPar:"1/4 case", weekendPar:"1/2 case"},
+    {name:"Avocado (ripe)",              pack:"6 ea",    minPar:"3 ea",     weekendPar:"6 ea"},
+    {name:"Basil, Hawaiian",             pack:"#",       minPar:"1",        weekendPar:"2"},
+    {name:"Cilantro",                    pack:"bunch",   minPar:"8 bunches", weekendPar:"8 bunches"},
+    {name:"Dill",                        pack:"1/4#",    minPar:"1/4 case", weekendPar:"1/4 case"},
+    {name:"Spearmint",                   pack:"1/4#",    minPar:"1/4 case", weekendPar:"1/4 case"},
+    {name:"Oregano, Big Leaf, thick stem", pack:"1/4#",  minPar:"1/4 case", weekendPar:"1/4 case"},
+    {name:"Thyme, thick stem",           pack:"1/4#",    minPar:"1/4 case", weekendPar:"1/4 case"},
+    {name:"Sage, Hawaiian",              pack:"#",       minPar:"1/2 case", weekendPar:"1 case"},
+    {name:"Eggs",                        pack:"cs",      minPar:"15 dz",    weekendPar:"30 dz"},
+    {name:"Cream",                       pack:"cs",      minPar:"1 cs",     weekendPar:"2 cs"},
+    {name:"Raspberry Puree",             pack:"cs",      minPar:"1",        weekendPar:"1"},
+    {name:"Blood Orange Puree",          pack:"cs",      minPar:"1",        weekendPar:"1"},
+    {name:"Red Jalapenos",               pack:"1#",      minPar:"1/2 case", weekendPar:"1 case"}
+  ],
+  meats: [
+    {name:"Chicken Breast",                        pack:"20# cs", minPar:"1 cs",   weekendPar:"1 cs"},
+    {name:"CAB Hangar Steak cleaned - 4 oz portion", pack:"10# cs", minPar:"5#",  weekendPar:"10#"},
+    {name:"Calamari, Fresh 5/7 TT 10#",           pack:"25# cs",  minPar:"7.5#",  weekendPar:"1/2 cs"},
+    {name:"Ground Lamb (Imported)",               pack:"10# cs",  minPar:"1/2 cs", weekendPar:"1/2 cs"},
+    {name:"Lamb Tenders",                         pack:"25# cs",  minPar:"1/2 cs", weekendPar:"1/2 cs"},
+    {name:"Lump Crab Meat, Red Swimming",         pack:"6 1# cs", minPar:"4 1# cans", weekendPar:"4 1# cans"},
+    {name:"PEI Mussels",                          pack:"10# bag", minPar:"1 bag", weekendPar:"2 bags"},
+    {name:"Shrimp, Ocean Garden Wild 16/20",      pack:"20# cs",  minPar:"4 bags of 2#", weekendPar:"full cs"},
+    {name:"Tuna Steaks, 6oz",                     pack:"10# cs",  minPar:"1/4 cs", weekendPar:"1/2 cs"},
+    {name:"Whole Salmon, Faroe 11-13#",           pack:"10# cs",  minPar:"1/2 cs", weekendPar:"1 cs"},
+    {name:"Scallops, U10/20 dry pack",            pack:"10# cs",  minPar:"1/4 cs", weekendPar:"1 cs"},
+    {name:"Andouille Sausage",                    pack:"10# cs",  minPar:"1/4 cs", weekendPar:"1/4 cs"},
+    {name:"Bacon, Thick Sliced",                  pack:"7.5# cs", minPar:"1/2 cs", weekendPar:"1/2 cs"}
+  ],
+  sysco: [
+    {name:"Butter Pats, Foil",                pack:"cs",       par:"1"},
+    {name:"Butter, Salted",                   pack:"36/1#cs",  par:"1"},
+    {name:"Caesar Dressing, Sysco",           pack:"1gal",     par:"2"},
+    {name:"Eggs, Boiled, Pillow-Pack",        pack:"cs",       par:"1"},
+    {name:"Shaved Parm",                      pack:"bag",      par:"2"},
+    {name:"Sour Cream",                       pack:"4/5#cs",   par:"1"},
+    {name:"Whipped Cream",                    pack:"cs",       par:"1"},
+    {name:"Yogurt, Plain Lowfat",             pack:"6/32oz",   par:"1"},
+    {name:"Ciabatta Buns",                    pack:"cs",       par:"1"},
+    {name:"Mayonnaise, Dukes",                pack:"4/1gal",   par:"1"},
+    {name:"Panini Bread",                     pack:"cs",       par:"1"},
+    {name:"Sundried Tomatoes",                pack:"box",      par:"1"},
+    {name:"AP Flour",                         pack:"25#",      par:"1"},
+    {name:"Baking Powder",                    pack:"1/10#",    par:"1"},
+    {name:"Coke,Sprite,Diet",                 pack:"1/2 box",  par:"1ea"},
+    {name:"Cranberry Sauce, Whole Berry",     pack:"#10 can",  par:"1"},
+    {name:"Splenda Packets",                  pack:"cs",       par:"1"},
+    {name:"Garbanzo Beans",                   pack:"6/#10",    par:"1"},
+    {name:"Honey, Clover",                    pack:"5#jug",    par:"2"},
+    {name:"Lowry's Seasoning Salt",           pack:"5#tub",    par:"1"},
+    {name:"Maple Syrup Blend",                pack:"4/1gal",   par:"1"},
+    {name:"Plastic Wrap 18\"",                pack:"roll",     par:"1"},
+    {name:"Pellegrino, 500ml Glass",          pack:"cs",       par:"1"},
+    {name:"Pellegrino, 1L glass",             pack:"cs",       par:"1"},
+    {name:"Panna, 500ml Plastic",             pack:"cs",       par:"1"},
+    {name:"Panna, 500ml Glass",               pack:"cs",       par:"1"},
+    {name:"Pan Release",                      pack:"cs",       par:"1"},
+    {name:"Salt, Kosher Morton's",            pack:"cs",       par:"1"},
+    {name:"Salt, Table Grind Rounds",         pack:"cs",       par:"1"},
+    {name:"Soy Sauce",                        pack:"1 gal",    par:"1"},
+    {name:"Sugar Packets/Brown Packs",        pack:"cs",       par:"1"},
+    {name:"Sugar, Granulated",                pack:"50#bag",   par:"1"},
+    {name:"Sweet n' Low Packets/Splenda",     pack:"cs",       par:"1"},
+    {name:"Tahini",                           pack:"jar",      par:"2"},
+    {name:"Tomatillos, Canned",               pack:"6/#10",    par:"1"},
+    {name:"Tomato Strips, Bienvenido",        pack:"6/#10",    par:"2"},
+    {name:"White Vinegar",                    pack:"4/1gal",   par:"1"},
+    {name:"Worchestershire Sauce",            pack:"1gal",     par:"1"},
+    {name:"Vanilla Extract",                  pack:"gal",      par:"1"},
+    {name:"Andouille Sausage",                pack:"cs",       par:"1"},
+    {name:"Biscuits, Pillsbury Mini",         pack:"cs",       par:"1"},
+    {name:"French Fries",                     pack:"cs",       par:"2"},
+    {name:"Mango, Frozen",                    pack:"cs",       par:"1"}
+  ],
+  igf: [
+    {name:"Feta Cheese",                 pack:"case",    par:"1"},
+    {name:"Fontal Cheese",               pack:"wedge",   par:"2"},
+    {name:"Gorgonzola",                  pack:"wheel",   par:"1"},
+    {name:"Manchego Cheese",             pack:"wheel",   par:"1"},
+    {name:"Mascarpone",                  pack:"6/1#",    par:"2"},
+    {name:"Romano Cheese",               pack:"1/4 wheel", par:"1"},
+    {name:"Anchovies",                   pack:"tin",     par:"2"},
+    {name:"Capers, Nonpareilles",        pack:"jar",     par:"2"},
+    {name:"Caperberries",                pack:"jar",     par:"2"},
+    {name:"Cherries, Maraschino, w/stem",pack:"gal",     par:"1"},
+    {name:"Cornichons",                  pack:"gal",     par:"1"},
+    {name:"Demi-Glace Veal",             pack:"16#",     par:"1"},
+    {name:"Dijon Mustard",               pack:"gal",     par:"1"},
+    {name:"Dolmas",                      pack:"can",     par:"1"},
+    {name:"Gigandes",                    pack:"can",     par:"3"},
+    {name:"Green Olives, Queen",         pack:"1 gal",   par:"1"},
+    {name:"Mixed Greek Olives",          pack:"cs",      par:"1"},
+    {name:"Nicoise Olives, pitted",      pack:"tub",     par:"1"},
+    {name:"Phyllo Dough, Ready 2Go",     pack:"cs",      par:"1"},
+    {name:"Pine Nuts",                   pack:"bag",     par:"1"},
+    {name:"Pita Bread, 7\" Pocketless",  pack:"cs",      par:"1"},
+    {name:"Plum Sauce (Sauce Prunes)",   pack:"can",     par:"1"},
+    {name:"Strawberry Preserves",        pack:"jar",     par:"2"},
+    {name:"Carnaroli Rice",              pack:"cs",      par:"1"},
+    {name:"Clam Juice",                  pack:"cs",      par:"1"},
+    {name:"Pearl Couscous",              pack:"bag",     par:"1"},
+    {name:"Dried Cherries",              pack:"5# bag",  par:"1"},
+    {name:"Gaufrettes",                  pack:"cs",      par:"1"},
+    {name:"Ladyfingers",                 pack:"cs",      par:"1"},
+    {name:"Oil, Fryer, Canola",          pack:"1/35lb",  par:"2"},
+    {name:"Olive Oil EV",                pack:"Can",     par:"4"},
+    {name:"Olive Oil Blend",             pack:"Btl",     par:"6"},
+    {name:"Pasta Angel Hair",            pack:"cs",      par:"1"},
+    {name:"Pasta, Gemelli",              pack:"cs",      par:"1"},
+    {name:"Pasta Fettucine",             pack:"cs",      par:"1"},
+    {name:"Polenta",                     pack:"cs",      par:"1"},
+    {name:"Red Wine Vinegar",            pack:"jug",     par:"1"},
+    {name:"Rice Vinegar",                pack:"Gal",     par:"1"},
+    {name:"Roasted Red Pepper, Divina",  pack:"3/cs",    par:"1"},
+    {name:"Saffron",                     pack:"oz",      par:"1"},
+    {name:"Goat/Mush Ravioli",           pack:"cs",      par:"1"},
+    {name:"Pancetta",                    pack:"pc",      par:"2"},
+    {name:"Sorbet",                      pack:"tub",     par:"1"},
+    {name:"Spanokopita",                 pack:"cs",      par:"1"},
+    {name:"Squash Ravioli",              pack:"cs",      par:"1"},
+    {name:"Hazelnut Flour",              pack:"5# bag",  par:"1"}
+  ]
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// DOM refs & constants
+// ──────────────────────────────────────────────────────────────────────────────
+const tbody = document.querySelector('#itemsTable tbody');
+const tableHead = document.querySelector('#tableHead');
+const vendorSel = document.querySelector('#vendor');
+const filterInput = document.getElementById('filter');
+const PHONE_NUMBER = '+16465761431';
+const { jsPDF } = window.jspdf;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Rendering
+// ──────────────────────────────────────────────────────────────────────────────
+function loadInventory(vendor){
+  tbody.innerHTML = '';
+  tableHead.innerHTML = '';
+
+  if(vendor==='royal' || vendor==='meats'){
+    tableHead.innerHTML = '<th>Item</th><th>Pack Size</th><th>Min Par</th><th>Weekend Par</th><th>Order</th>';
+    INVENTORY[vendor].forEach(item=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td data-label="Item">${item.name}</td>
+        <td data-label="Pack Size">${item.pack}</td>
+        <td data-label="Min Par">${item.minPar}</td>
+        <td data-label="Weekend Par">${item.weekendPar}</td>
+        <td data-label="Order"><input type="number" class="order" value="0" min="0" step="1" inputmode="numeric" enterkeyhint="done"></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } else if(vendor==='sysco' || vendor==='igf'){
+    tableHead.innerHTML = '<th>Item</th><th>Pack Size</th><th>Par</th><th>Order</th>';
+    INVENTORY[vendor].forEach(item=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td data-label="Item">${item.name}</td>
+        <td data-label="Pack Size">${item.pack}</td>
+        <td data-label="Par">${item.par}</td>
+        <td data-label="Order"><input type="number" class="order" value="0" min="0" step="1" inputmode="numeric" enterkeyhint="done"></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+function applyFilter(){
+  const q=(filterInput.value||'').trim().toLowerCase();
+  document.querySelectorAll('#itemsTable tbody tr').forEach(tr=>{
+    const txt=tr.textContent.toLowerCase();
+    tr.style.display = q && !txt.includes(q) ? 'none' : '';
+  });
+}
+
+// Build a plain-text summary for SMS/share
+function buildOrderSummary(vendor){
+  const lines=[`Vendor: ${vendor.toUpperCase()}`];
+  if(vendor==='royal'||vendor==='meats'){
+    lines.push('Item | Pack | Min Par | Weekend Par | Order');
+  } else {
+    lines.push('Item | Pack | Par | Order');
+  }
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    const tds=[...tr.querySelectorAll('td')];
+    const qtyInput=tds[tds.length-1].querySelector('input');
+    const order=qtyInput?qtyInput.value:0;
+    if(order>0){
+      if(vendor==='royal'||vendor==='meats'){
+        lines.push(`${tds[0].innerText} | ${tds[1].innerText} | ${tds[2].innerText} | ${tds[3].innerText} | ${order}`);
+      } else {
+        lines.push(`${tds[0].innerText} | ${tds[1].innerText} | ${tds[2].innerText} | ${order}`);
+      }
+    }
+  });
+  if(lines.length<=2){ lines.push('(No items ordered)'); }
+  return lines.join('\n');
+}
+
+// Generate PDF and return blob & filename
+function generatePdfForVendor(vendor){
+  const doc = new jsPDF({unit:'pt',format:'a4'});
+  doc.setFontSize(14);
+  doc.text('Vendor Purchase Order',40,40);
+  const rows=[];
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    const cols=tr.querySelectorAll('td');
+    if(vendor==='royal'||vendor==='meats'){
+      const item=cols[0].innerText;
+      const pack=cols[1].innerText;
+      const minPar=cols[2].innerText;
+      const weekendPar=cols[3].innerText;
+      const order=cols[4].querySelector('input').value;
+      if(order>0){rows.push([item,pack,minPar,weekendPar,order]);}
+    } else {
+      const item=cols[0].innerText;
+      const pack=cols[1].innerText;
+      const par=cols[2].innerText;
+      const order=cols[3].querySelector('input').value;
+      if(order>0){rows.push([item,pack,par,order]);}
+    }
+  });
+  if(vendor==='royal'||vendor==='meats'){
+    doc.autoTable({head:[["Item","Pack Size","Min Par","Weekend Par","Order"]],body:rows,startY:60});
+  } else {
+    doc.autoTable({head:[["Item","Pack Size","Par","Order"]],body:rows,startY:60});
+  }
+  const blob = doc.output('blob');
+  const fileName = `PO-${vendor}-${new Date().toISOString().slice(0,10)}.pdf`;
+  return { doc, blob, fileName, rowsCount: rows.length };
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Init
+// ──────────────────────────────────────────────────────────────────────────────
+function init(){
+  loadInventory('royal');
+  vendorSel.addEventListener('change', e=>{ loadInventory(e.target.value); applyFilter(); });
+  if(filterInput){ filterInput.addEventListener('input', applyFilter); }
+
+  // Submit → download PDF
+  document.querySelector('#poForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const vendor=vendorSel.value;
+    const { doc, fileName } = generatePdfForVendor(vendor);
+    doc.save(fileName);
+  });
+
+  // Share via Text → Share Sheet (fallback to SMS link + download)
+  document.getElementById('shareBtn').addEventListener('click', async function(){
+    const vendor=vendorSel.value;
+    const { blob, fileName } = generatePdfForVendor(vendor);
+    const summaryText=buildOrderSummary(vendor);
+    try{
+      const pdfFile=new File([blob], fileName, {type:'application/pdf'});
+      if(navigator.share && navigator.canShare && navigator.canShare({files:[pdfFile]})){
+        await navigator.share({files:[pdfFile], title:'Purchase Order', text: summaryText});
+        return;
+      }
+    }catch(err){ console.warn('Share failed or unsupported', err); }
+    const smsBody=encodeURIComponent(summaryText);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+    const smsURL = isIOS ? `sms:&body=${smsBody}` : `sms:${PHONE_NUMBER}?body=${smsBody}`;
+    try{ window.location.href=smsURL; }catch(_){ }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=fileName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+  });
+
+  runSelfTests();
+}
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Self-tests (non-blocking)
+// ──────────────────────────────────────────────────────────────────────────────
+function runSelfTests(){
+  const results=[];
+  function test(name, fn){
+    try{ fn(); results.push({name, ok:true}); }
+    catch(e){ results.push({name, ok:false, msg:e.message}); }
+  }
+
+  // Existing test (kept): inventory presence
+  test('Inventory present', ()=>{
+    if(!INVENTORY || !Array.isArray(INVENTORY.royal) || INVENTORY.royal.length===0) throw new Error('Royal inventory missing');
+  });
+
+  // New tests
+  test('Render Royal columns', ()=>{
+    loadInventory('royal');
+    const heads=[...document.querySelectorAll('#tableHead th')].map(h=>h.textContent.trim());
+    if(heads.join('|')!== 'Item|Pack Size|Min Par|Weekend Par|Order') throw new Error('Royal header mismatch');
+  });
+  test('Render Sysco columns', ()=>{
+    loadInventory('sysco');
+    const heads=[...document.querySelectorAll('#tableHead th')].map(h=>h.textContent.trim());
+    if(heads.join('|')!== 'Item|Pack Size|Par|Order') throw new Error('Sysco header mismatch');
+  });
+  test('Share button exists', ()=>{
+    if(!document.getElementById('shareBtn')) throw new Error('Share button missing');
+  });
+
+  // Restore default view
+  loadInventory(vendorSel.value||'royal');
+
+  const el=document.getElementById('testStatus');
+  if(el){
+    const ok=results.every(r=>r.ok);
+    el.textContent = ok ? 'Self-tests passed' : 'Self-tests: '+results.map(r=>`${r.ok?'✅':'❌'} ${r.name}${r.msg?(' - '+r.msg):''}`).join(' | ');
+    el.style.color = ok ? '#155724' : '#721c24';
+    el.style.background = ok ? '#d4edda' : '#f8d7da';
+    el.style.border = ok ? '1px solid #c3e6cb' : '1px solid #f5c6cb';
+  }
+}
+</script>
+</body>
+</html>
