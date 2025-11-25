@@ -25,6 +25,14 @@
     .btn.sticky{position:sticky;bottom:0;width:100%;box-shadow:0 -2px 8px rgba(0,0,0,.08);margin-top:10px}
     .status{margin-top:12px;padding:10px;border-radius:10px;font-size:14px}
 
+    /* Section header rows for grouped spices */
+    .section-header{
+      font-weight:bold;
+      background:#eef2ff;
+      letter-spacing:0.03em;
+      text-transform:uppercase;
+    }
+
     /* 📱 Mobile: turn table rows into cards */
     @media (max-width: 720px){
       table thead{display:none}
@@ -36,6 +44,8 @@
       tbody td > *{flex:1}
       .btn.sticky{position:static;width:100%}
       .toolbar{position:sticky;top:0;background:#fff;padding-bottom:8px;z-index:2}
+      .section-header{display:block}
+      .section-header::before{content:''}
     }
   </style>
 </head>
@@ -51,9 +61,10 @@
         <option value="sysco">Sysco</option>
         <option value="igf">IGF</option>
         <option value="bar">Bar</option>
+        <option value="sidney">Sidney's Spices</option>
       </select>
       <div class="spacer"></div>
-      <input id="filter" class="filter" type="search" placeholder="Filter items… (e.g., onions, salmon)" />
+      <input id="filter" class="filter" type="search" placeholder="Filter items… (e.g., onions, salmon, paprika)" />
     </div>
     <table id="itemsTable">
       <thead>
@@ -87,7 +98,7 @@
 })();
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Inventory data (as provided)
+// Inventory data
 // ──────────────────────────────────────────────────────────────────────────────
 const INVENTORY = {
   royal: [
@@ -255,40 +266,85 @@ const INVENTORY = {
   bar: [
     {name:"Agave Syrup",                 pack:"bottle",  par:"1"},
     {name:"Amba",                        pack:"Case",    par:"1"},
-    {name:"Baby Green Peas",            pack:"bags",    par:"6"},
-    {name:"Bitters, Angostura",         pack:"Btl",     par:"1"},
-    {name:"Bitters, Orange, Regan's",   pack:"Btl",     par:"1"},
-    {name:"Bitters, Peach",             pack:"btl",     par:"1"},
-    {name:"Bitters, Walnut",            pack:"Btl",     par:"1"},
-    {name:"Buttermilk, Big",            pack:"1/2 gal", par:"2"},
-    {name:"Buttermilk, Small",          pack:"qt",      par:"1"},
-    {name:"Candied Ginger",             pack:"bag",     par:"2"},
-    {name:"Chicken Stock",              pack:"cs",      par:"3"},
-    {name:"Coconut Milk",               pack:"Case",    par:"1"},
-    {name:"Cranberry Juice",            pack:"Btl",     par:"2"},
-    {name:"Cranberry Sauce",            pack:"can",     par:"10"},
-    {name:"Chile de árbol",             pack:"lb",      par:"1"},
-    {name:"Dark Brown Sugar",           pack:"#",       par:"2"},
-    {name:"Decaf Coffee",               pack:"Can",     par:"2"},
-    {name:"Flowers",                    pack:"Bunch",   par:"5"},
-    {name:"Grapefruit juice",           pack:"1/2 gal", par:"1"},
-    {name:"HP Steak Sauce",             pack:"btl",     par:"2"},
-    {name:"Ice Cream, Vanilla Bean",    pack:"tub",     par:"6"},
-    {name:"Ketchup",                    pack:"2-pack",  par:"2"},
-    {name:"Milk, Whole",                pack:"Gal",     par:"2"},
-    {name:"Orange Juice",               pack:"Carton",  par:"4"},
-    {name:"Peach Nectar",               pack:"Btl",     par:"1"},
-    {name:"Pie crusts",                 pack:"each",    par:"4"},
-    {name:"Pineapple Juice",            pack:"6pk",     par:"1"},
-    {name:"Powdered Sugar",             pack:"bag",     par:"1"},
-    {name:"Tabasco",                    pack:"Btl",     par:"2"},
-    {name:"Taramosalata",               pack:"jar",     par:"8"},
-    {name:"Tomato Juice, Small cans",   pack:"cs",      par:"1"},
-    {name:"Unsweetened Org Cran",       pack:"bottle",  par:"1"},
-    {name:"Blue Cheese Stuffed Olives", pack:"Jar",     par:"3"},
-    {name:"Glass Cleaner",              pack:"Btl",     par:"2"},
-    {name:"Skewers",                    pack:"Pack",    par:"10"},
-    {name:"Rice Flour",                 pack:"cs",      par:"1"}
+    {name:"Baby Green Peas",             pack:"bags",    par:"6"},
+    {name:"Bitters, Angostura",          pack:"Btl",     par:"1"},
+    {name:"Bitters, Orange, Regan's",    pack:"Btl",     par:"1"},
+    {name:"Bitters, Peach",              pack:"btl",     par:"1"},
+    {name:"Bitters, Walnut",             pack:"Btl",     par:"1"},
+    {name:"Buttermilk, Big",             pack:"1/2 gal", par:"2"},
+    {name:"Buttermilk, Small",           pack:"qt",      par:"1"},
+    {name:"Candied Ginger",              pack:"bag",     par:"2"},
+    {name:"Chicken Stock",               pack:"cs",      par:"3"},
+    {name:"Coconut Milk",                pack:"Case",    par:"1"},
+    {name:"Cranberry Juice",             pack:"Btl",     par:"2"},
+    {name:"Cranberry Sauce",             pack:"can",     par:"10"},
+    {name:"Chile de árbol",              pack:"lb",      par:"1"},
+    {name:"Dark Brown Sugar",            pack:"#",       par:"2"},
+    {name:"Decaf Coffee",                pack:"Can",     par:"2"},
+    {name:"Flowers",                     pack:"Bunch",   par:"5"},
+    {name:"Grapefruit juice",            pack:"1/2 gal", par:"1"},
+    {name:"HP Steak Sauce",              pack:"btl",     par:"2"},
+    {name:"Ice Cream, Vanilla Bean",     pack:"tub",     par:"6"},
+    {name:"Ketchup",                     pack:"2-pack",  par:"2"},
+    {name:"Milk, Whole",                 pack:"Gal",     par:"2"},
+    {name:"Orange Juice",                pack:"Carton",  par:"4"},
+    {name:"Peach Nectar",                pack:"Btl",     par:"1"},
+    {name:"Pie crusts",                  pack:"each",    par:"4"},
+    {name:"Pineapple Juice",             pack:"6pk",     par:"1"},
+    {name:"Powdered Sugar",              pack:"bag",     par:"1"},
+    {name:"Tabasco",                     pack:"Btl",     par:"2"},
+    {name:"Taramosalata",                pack:"jar",     par:"8"},
+    {name:"Tomato Juice, Small cans",    pack:"cs",      par:"1"},
+    {name:"Unsweetened Org Cran",        pack:"bottle",  par:"1"},
+    {name:"Blue Cheese Stuffed Olives",  pack:"Jar",     par:"3"},
+    {name:"Glass Cleaner",               pack:"Btl",     par:"2"},
+    {name:"Skewers",                     pack:"Pack",    par:"10"},
+    {name:"Rice Flour",                  pack:"cs",      par:"1"}
+  ],
+  sidney: [
+    // Large Spices (handles)
+    {name:"Large Spices (handles)",      isHeader:true},
+    {name:"Coarse Ground Black Pepper",  pack:"", par:""},
+    {name:"Dried Lemon Peel",            pack:"", par:""},
+    {name:"Fine Ground Black Pepper",    pack:"", par:""},
+    {name:"Granulated Garlic",           pack:"", par:""},
+    {name:"Granulated Onion",            pack:"", par:""},
+    {name:"Ground Cayenne Pepper",       pack:"", par:""},
+    {name:"Ground Cinnamon",             pack:"", par:""},
+    {name:"Ground Coriander",            pack:"", par:""},
+    {name:"Ground Cumin",                pack:"", par:""},
+    {name:"Quarter Cracked Black Pepper",pack:"", par:""},
+    {name:"Sweet Spanish Paprika",       pack:"", par:""},
+    {name:"Whole Mexican Oregano Leaf",  pack:"", par:""},
+    {name:"Whole Tellicherry Peppercorns", pack:"", par:""},
+
+    // Small Spices
+    {name:"Small Spices",                isHeader:true},
+    {name:"Dill, Whole",                 pack:"", par:""},
+    {name:"Ground Allspice",             pack:"", par:""},
+    {name:"Ground Bay Leaf",             pack:"", par:""},
+    {name:"Ground Cardamom",             pack:"", par:""},
+    {name:"Ground Cloves",               pack:"", par:""},
+    {name:"Ground Nutmeg",               pack:"", par:""},
+    {name:"Ground Oregano",              pack:"", par:""},
+    {name:"Ground Sumac",                pack:"", par:""},
+    {name:"Ground Thyme",                pack:"", par:""},
+    {name:"Ground White Pepper",         pack:"", par:""},
+    {name:"Guajillo Powder",             pack:"", par:""},
+    {name:"Pasilla Negra Powder",        pack:"", par:""},
+    {name:"Whole Cloves",                pack:"", par:""},
+
+    // Other
+    {name:"Other",                       isHeader:true},
+    {name:"Almonds, Sliced Blanched",    pack:"", par:""},
+    {name:"Hazelnuts, Blanched",         pack:"", par:""},
+    {name:"Walnut Halves",               pack:"", par:""},
+    {name:"Custom Gold Crab Base",       pack:"", par:""},
+    {name:"Custom Gold Mushroom Base",   pack:"", par:""},
+    {name:"Custom Gold Shrimp Base",     pack:"", par:""},
+    {name:"Hafner Melba Toasts",         pack:"", par:""},
+    {name:"Panko Bread Crumbs, Soft",    pack:"", par:""},
+    {name:"Roland Balsamic Vinegar, 2/5L", pack:"", par:""}
   ]
 };
 
@@ -322,16 +378,20 @@ function loadInventory(vendor){
       `;
       tbody.appendChild(tr);
     });
-  } else if(vendor==='sysco' || vendor==='igf' || vendor==='bar'){
+  } else if(vendor==='sysco' || vendor==='igf' || vendor==='bar' || vendor==='sidney'){
     tableHead.innerHTML = '<th>Item</th><th>Pack Size</th><th>Par</th><th>Order</th>';
     INVENTORY[vendor].forEach(item=>{
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td data-label="Item">${item.name}</td>
-        <td data-label="Pack Size">${item.pack}</td>
-        <td data-label="Par">${item.par}</td>
-        <td data-label="Order"><input type="number" class="order" value="0" min="0" step="1" inputmode="numeric" enterkeyhint="done"></td>
-      `;
+      if(item.isHeader){
+        tr.innerHTML = `<td colspan="4" class="section-header">${item.name}</td>`;
+      } else {
+        tr.innerHTML = `
+          <td data-label="Item">${item.name}</td>
+          <td data-label="Pack Size">${item.pack}</td>
+          <td data-label="Par">${item.par}</td>
+          <td data-label="Order"><input type="number" class="order" value="0" min="0" step="1" inputmode="numeric" enterkeyhint="done"></td>
+        `;
+      }
       tbody.appendChild(tr);
     });
   }
@@ -355,7 +415,7 @@ function buildOrderSummary(vendor){
   }
   tbody.querySelectorAll('tr').forEach(tr=>{
     const tds=[...tr.querySelectorAll('td')];
-    const qtyInput=tds[tds.length-1].querySelector('input');
+    const qtyInput=tds[tds.length-1]?.querySelector('input');
     const order=qtyInput?qtyInput.value:0;
     if(order>0){
       if(vendor==='royal'||vendor==='meats'){
@@ -377,19 +437,27 @@ function generatePdfForVendor(vendor){
   const rows=[];
   tbody.querySelectorAll('tr').forEach(tr=>{
     const cols=tr.querySelectorAll('td');
+    if(!cols.length) return;
+
     if(vendor==='royal'||vendor==='meats'){
-      const item=cols[0].innerText;
-      const pack=cols[1].innerText;
-      const minPar=cols[2].innerText;
-      const weekendPar=cols[3].innerText;
-      const order=cols[4].querySelector('input').value;
-      if(order>0){rows.push([item,pack,minPar,weekendPar,order]);}
+      const inputCell = cols[4]?.querySelector('input');
+      const order = inputCell ? inputCell.value : 0;
+      if(order>0){
+        const item=cols[0].innerText;
+        const pack=cols[1].innerText;
+        const minPar=cols[2].innerText;
+        const weekendPar=cols[3].innerText;
+        rows.push([item,pack,minPar,weekendPar,order]);
+      }
     } else {
-      const item=cols[0].innerText;
-      const pack=cols[1].innerText;
-      const par=cols[2].innerText;
-      const order=cols[3].querySelector('input').value;
-      if(order>0){rows.push([item,pack,par,order]);}
+      const inputCell = cols[3]?.querySelector('input');
+      const order = inputCell ? inputCell.value : 0;
+      if(order>0){
+        const item=cols[0].innerText;
+        const pack=cols[1].innerText;
+        const par=cols[2].innerText;
+        rows.push([item,pack,par,order]);
+      }
     }
   });
   if(vendor==='royal'||vendor==='meats'){
@@ -458,7 +526,7 @@ function runSelfTests(){
     if(!INVENTORY || !Array.isArray(INVENTORY.royal) || INVENTORY.royal.length===0) throw new Error('Royal inventory missing');
   });
 
-  // New tests
+  // Column layout sanity checks
   test('Render Royal columns', ()=>{
     loadInventory('royal');
     const heads=[...document.querySelectorAll('#tableHead th')].map(h=>h.textContent.trim());
@@ -473,6 +541,11 @@ function runSelfTests(){
     loadInventory('bar');
     const heads=[...document.querySelectorAll('#tableHead th')].map(h=>h.textContent.trim());
     if(heads.join('|')!== 'Item|Pack Size|Par|Order') throw new Error('Bar header mismatch');
+  });
+  test('Render Sidney columns', ()=>{
+    loadInventory('sidney');
+    const heads=[...document.querySelectorAll('#tableHead th')].map(h=>h.textContent.trim());
+    if(heads.join('|')!== 'Item|Pack Size|Par|Order') throw new Error('Sidney header mismatch');
   });
   test('Share button exists', ()=>{
     if(!document.getElementById('shareBtn')) throw new Error('Share button missing');
