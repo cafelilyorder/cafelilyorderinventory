@@ -340,7 +340,6 @@ const INVENTORY = {
     {name:"Roland Balsamic Vinegar, 2/5L", pack:"", par:""}
   ]
 };
-
 // ──────────────────────────────────────────────────────────────────────────────
 // DOM refs & constants
 // ──────────────────────────────────────────────────────────────────────────────
@@ -398,31 +397,40 @@ function applyFilter(){
   });
 }
 
-// Build a plain-text summary for SMS/share
+// ──────────────────────────────────────────────────────────────────────────────
+// Build SMS summary → ONLY "Item | Par" where Order > 0
+// ──────────────────────────────────────────────────────────────────────────────
 function buildOrderSummary(vendor){
   const lines=[`Vendor: ${vendor.toUpperCase()}`];
-  if(vendor==='royal'||vendor==='meats'){
-    lines.push('Item | Pack | Min Par | Weekend Par | Order');
-  } else {
-    lines.push('Item | Pack | Par | Order');
-  }
+
   tbody.querySelectorAll('tr').forEach(tr=>{
+    const inputs = tr.querySelectorAll('input.order');
+    if(!inputs.length) return; // skip header rows
+    const input = inputs[0];
+    const order = Number(input.value || 0);
+    if(order <= 0) return;
+
     const tds=[...tr.querySelectorAll('td')];
-    const qtyInput=tds[tds.length-1]?.querySelector('input');
-    const order=qtyInput?qtyInput.value:0;
-    if(order>0){
-      if(vendor==='royal'||vendor==='meats'){
-        lines.push(`${tds[0].innerText} | ${tds[1].innerText} | ${tds[2].innerText} | ${tds[3].innerText} | ${order}`);
-      } else {
-        lines.push(`${tds[0].innerText} | ${tds[1].innerText} | ${tds[2].innerText} | ${order}`);
-      }
+    if(vendor==='royal' || vendor==='meats'){
+      const item = tds[0].innerText.trim();
+      const minPar = tds[2].innerText.trim();
+      const weekendPar = tds[3].innerText.trim();
+      const parText = weekendPar ? `${minPar} / ${weekendPar}` : minPar;
+      lines.push(`${item} | ${parText}`);
+    } else {
+      const item = tds[0].innerText.trim();
+      const par = tds[2].innerText.trim();
+      lines.push(`${item} | ${par}`);
     }
   });
-  if(lines.length<=2){ lines.push('(No items ordered)'); }
+
+  if(lines.length===1){ lines.push('(No items ordered)'); }
   return lines.join('\n');
 }
 
-// Generate PDF and return blob & filename
+// ──────────────────────────────────────────────────────────────────────────────
+// PDF generation
+// ──────────────────────────────────────────────────────────────────────────────
 function generatePdfForVendor(vendor){
   const doc = new jsPDF({unit:'pt',format:'a4'});
   doc.setFontSize(14);
@@ -471,7 +479,6 @@ function init(){
   vendorSel.addEventListener('change', e=>{ loadInventory(e.target.value); applyFilter(); });
   if(filterInput){ filterInput.addEventListener('input', applyFilter); }
 
-  // Submit → download PDF
   document.querySelector('#poForm').addEventListener('submit', function(e){
     e.preventDefault();
     const vendor=vendorSel.value;
@@ -479,7 +486,6 @@ function init(){
     doc.save(fileName);
   });
 
-  // Share via Text → Share Sheet (fallback to SMS link + download)
   document.getElementById('shareBtn').addEventListener('click', async function(){
     const vendor=vendorSel.value;
     const { blob, fileName } = generatePdfForVendor(vendor);
@@ -505,7 +511,7 @@ function init(){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Self-tests (non-blocking)
+// Self-tests
 // ──────────────────────────────────────────────────────────────────────────────
 function runSelfTests(){
   const results=[];
@@ -514,12 +520,10 @@ function runSelfTests(){
     catch(e){ results.push({name, ok:false, msg:e.message}); }
   }
 
-  // Existing test (kept): inventory presence
   test('Inventory present', ()=>{
     if(!INVENTORY || !Array.isArray(INVENTORY.royal) || INVENTORY.royal.length===0) throw new Error('Royal inventory missing');
   });
 
-  // Column layout sanity checks
   test('Render Royal columns', ()=>{
     loadInventory('royal');
     const heads=[...document.querySelectorAll('#tableHead th')].map(h=>h.textContent.trim());
@@ -544,7 +548,6 @@ function runSelfTests(){
     if(!document.getElementById('shareBtn')) throw new Error('Share button missing');
   });
 
-  // Restore default view
   loadInventory(vendorSel.value||'royal');
 
   const el=document.getElementById('testStatus');
