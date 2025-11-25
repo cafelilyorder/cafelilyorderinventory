@@ -50,6 +50,7 @@
         <option value="meats">Meats</option>
         <option value="sysco">Sysco</option>
         <option value="igf">IGF</option>
+        <option value="bar">Bar</option>
       </select>
       <div class="spacer"></div>
       <input id="filter" class="filter" type="search" placeholder="Filter items… (e.g., onions, salmon)" />
@@ -234,7 +235,7 @@ const INVENTORY = {
     {name:"Dried Cherries",              pack:"5# bag",  par:"1"},
     {name:"Gaufrettes",                  pack:"cs",      par:"1"},
     {name:"Ladyfingers",                 pack:"cs",      par:"1"},
-        {name:"Olive Oil EV",                pack:"Can",     par:"4"},
+    {name:"Olive Oil EV",                pack:"Can",     par:"4"},
     {name:"Olive Oil Blend",             pack:"Btl",     par:"6"},
     {name:"Pasta Angel Hair",            pack:"cs",      par:"1"},
     {name:"Pasta, Gemelli",              pack:"cs",      par:"1"},
@@ -250,6 +251,44 @@ const INVENTORY = {
     {name:"Spanokopita",                 pack:"cs",      par:"1"},
     {name:"Squash Ravioli",              pack:"cs",      par:"1"},
     {name:"Hazelnut Flour",              pack:"5# bag",  par:"1"}
+  ],
+  bar: [
+    {name:"Agave Syrup",                 pack:"bottle",  par:"1"},
+    {name:"Amba",                        pack:"Case",    par:"1"},
+    {name:"Baby Green Peas",            pack:"bags",    par:"6"},
+    {name:"Bitters, Angostura",         pack:"Btl",     par:"1"},
+    {name:"Bitters, Orange, Regan's",   pack:"Btl",     par:"1"},
+    {name:"Bitters, Peach",             pack:"btl",     par:"1"},
+    {name:"Bitters, Walnut",            pack:"Btl",     par:"1"},
+    {name:"Buttermilk, Big",            pack:"1/2 gal", par:"2"},
+    {name:"Buttermilk, Small",          pack:"qt",      par:"1"},
+    {name:"Candied Ginger",             pack:"bag",     par:"2"},
+    {name:"Chicken Stock",              pack:"cs",      par:"3"},
+    {name:"Coconut Milk",               pack:"Case",    par:"1"},
+    {name:"Cranberry Juice",            pack:"Btl",     par:"2"},
+    {name:"Cranberry Sauce",            pack:"can",     par:"10"},
+    {name:"Chile de árbol",             pack:"lb",      par:"1"},
+    {name:"Dark Brown Sugar",           pack:"#",       par:"2"},
+    {name:"Decaf Coffee",               pack:"Can",     par:"2"},
+    {name:"Flowers",                    pack:"Bunch",   par:"5"},
+    {name:"Grapefruit juice",           pack:"1/2 gal", par:"1"},
+    {name:"HP Steak Sauce",             pack:"btl",     par:"2"},
+    {name:"Ice Cream, Vanilla Bean",    pack:"tub",     par:"6"},
+    {name:"Ketchup",                    pack:"2-pack",  par:"2"},
+    {name:"Milk, Whole",                pack:"Gal",     par:"2"},
+    {name:"Orange Juice",               pack:"Carton",  par:"4"},
+    {name:"Peach Nectar",               pack:"Btl",     par:"1"},
+    {name:"Pie crusts",                 pack:"each",    par:"4"},
+    {name:"Pineapple Juice",            pack:"6pk",     par:"1"},
+    {name:"Powdered Sugar",             pack:"bag",     par:"1"},
+    {name:"Tabasco",                    pack:"Btl",     par:"2"},
+    {name:"Taramosalata",               pack:"jar",     par:"8"},
+    {name:"Tomato Juice, Small cans",   pack:"cs",      par:"1"},
+    {name:"Unsweetened Org Cran",       pack:"bottle",  par:"1"},
+    {name:"Blue Cheese Stuffed Olives", pack:"Jar",     par:"3"},
+    {name:"Glass Cleaner",              pack:"Btl",     par:"2"},
+    {name:"Skewers",                    pack:"Pack",    par:"10"},
+    {name:"Rice Flour",                 pack:"cs",      par:"1"}
   ]
 };
 
@@ -283,7 +322,7 @@ function loadInventory(vendor){
       `;
       tbody.appendChild(tr);
     });
-  } else if(vendor==='sysco' || vendor==='igf'){
+  } else if(vendor==='sysco' || vendor==='igf' || vendor==='bar'){
     tableHead.innerHTML = '<th>Item</th><th>Pack Size</th><th>Par</th><th>Order</th>';
     INVENTORY[vendor].forEach(item=>{
       const tr = document.createElement('tr');
@@ -429,6 +468,11 @@ function runSelfTests(){
     loadInventory('sysco');
     const heads=[...document.querySelectorAll('#tableHead th')].map(h=>h.textContent.trim());
     if(heads.join('|')!== 'Item|Pack Size|Par|Order') throw new Error('Sysco header mismatch');
+  });
+  test('Render Bar columns', ()=>{
+    loadInventory('bar');
+    const heads=[...document.querySelectorAll('#tableHead th')].map(h=>h.textContent.trim());
+    if(heads.join('|')!== 'Item|Pack Size|Par|Order') throw new Error('Bar header mismatch');
   });
   test('Share button exists', ()=>{
     if(!document.getElementById('shareBtn')) throw new Error('Share button missing');
