@@ -30,7 +30,7 @@
     .btn-ghost{background:#eef2f7;color:#1f2937}
     .btn.sticky{position:sticky;bottom:0;width:100%;box-shadow:0 -2px 8px rgba(0,0,0,.08);margin-top:10px}
     .status{margin-top:12px;padding:10px;border-radius:10px;font-size:14px}
-    .section-row td{font-weight:bold}
+    .section-row td{font-weight:bold;cursor:pointer}.section-label{display:flex;align-items:center;justify-content:space-between;gap:8px}.section-left{display:flex;align-items:center;gap:8px}.section-caret{font-size:12px;opacity:.8}
     .row-active{background:#effaf2}
     .row-active td{border-color:#cce8d1}
 
@@ -162,7 +162,9 @@ const INVENTORY = {
     {name:"Blood Orange Puree", pack:"cs", minPar:"1", weekendPar:"1"},
     {name:"Red Jalapenos", pack:"1#", minPar:"1/2 case", weekendPar:"1 case"},
     {name:"Ginger", pack:"1#", minPar:"1/2 case", weekendPar:"1 case"},
-    {name:"Seasonal Fruit for Burrata Salad", pack:"1 cs", minPar:"1/4 case", weekendPar:"1/2 case"}
+    {name:"Seasonal Fruit for Burrata Salad", pack:"1 cs", minPar:"1/4 case", weekendPar:"1/2 case"},
+    {name:"Candied Ginger", pack:"bag", minPar:"", weekendPar:""},
+    {name:"Dried Mango", pack:"cs", minPar:"", weekendPar:""}
   ],
   meats: [
     {name:"Chicken Breast", pack:"20# cs", minPar:"1 cs", weekendPar:"1 cs"},
@@ -247,11 +249,13 @@ const INVENTORY = {
     {name:"Caperberries", pack:"jar", par:"2"},
     {name:"Cherries, Maraschino, w/stem", pack:"gal", par:"1"},
     {name:"Cornichons", pack:"gal", par:"1"},
+    {name:"Gherkins", pack:"gal", par:"1"},
     {name:"Demi-Glace Veal", pack:"16#", par:"1"},
     {name:"Dijon Mustard", pack:"gal", par:"1"},
     {name:"Dolmas", pack:"can", par:"1"},
     {name:"Gigandes", pack:"can", par:"3"},
     {name:"Olives, Spanish Green Queen", pack:"1 gal", par:"1"},
+    {name:"Cocktail Onions", pack:"1 gal", par:"1"},
     {name:"Olives Mixed Greek", pack:"cs", par:"1"},
     {name:"Olives Nicoise, pitted", pack:"tub", par:"1"},
     {name:"Olives Castelvetrano", pack:"1 gal", par:"1"},
@@ -288,7 +292,9 @@ const INVENTORY = {
     {name:"Pasta Bucatini", pack:"cs", par:"1"},
     {name:"Vinegar Sherry", pack:"1 gal", par:"1"},
     {name:"Vinegar Champagne", pack:"1 gal", par:"1"},
-    {name:"Vanilla Extract", pack:"gal", par:"1"}
+    {name:"Vanilla Extract", pack:"gal", par:"1"},
+    {name:"Taramosalata", pack:"jar", par:"8"},
+    {name:"Olives Blue Cheese Stuffed", pack:"Jar", par:"3"}
   ],
   bar: [
     {name:"Agave Syrup", pack:"bottle", par:"1"},
@@ -300,32 +306,32 @@ const INVENTORY = {
     {name:"Bitters, Walnut", pack:"Btl", par:"1"},
     {name:"Buttermilk, Big", pack:"1/2 gal", par:"2"},
     {name:"Buttermilk, Small", pack:"qt", par:"1"},
-    {name:"Candied Ginger", pack:"bag", par:"2"},
+    
     {name:"Chicken Stock", pack:"cs", par:"3"},
     {name:"Coconut Milk", pack:"Case", par:"1"},
     {name:"Cranberry Juice", pack:"Btl", par:"2"},
-    {name:"Cranberry Sauce", pack:"can", par:"10"},
+    
     {name:"Chile de árbol", pack:"lb", par:"1"},
-    {name:"Dark Brown Sugar", pack:"#", par:"2"},
-    {name:"Decaf Coffee", pack:"Can", par:"2"},
-    {name:"Flowers", pack:"Bunch", par:"5"},
+    
+    
+    
     {name:"Grapefruit juice", pack:"1/2 gal", par:"1"},
-    {name:"HP Steak Sauce", pack:"btl", par:"2"},
-    {name:"Ice Cream, Vanilla Bean", pack:"tub", par:"6"},
-    {name:"Ketchup", pack:"2-pack", par:"2"},
+    
+    
+    
     {name:"Milk, Whole", pack:"Gal", par:"2"},
     {name:"Orange Juice", pack:"Carton", par:"4"},
     {name:"Peach Nectar", pack:"Btl", par:"1"},
-    {name:"Pie crusts", pack:"each", par:"4"},
+    
     {name:"Pineapple Juice", pack:"6pk", par:"1"},
     {name:"Powdered Sugar", pack:"bag", par:"1"},
     {name:"Tabasco", pack:"Btl", par:"2"},
-    {name:"Taramosalata", pack:"jar", par:"8"},
-    {name:"Tomato Juice, Small cans", pack:"cs", par:"1"},
-    {name:"Unsweetened Org Cran", pack:"bottle", par:"1"},
-    {name:"Blue Cheese Stuffed Olives", pack:"Jar", par:"3"},
-    {name:"Glass Cleaner", pack:"Btl", par:"2"},
-    {name:"Skewers", pack:"Pack", par:"10"},
+    
+    
+    
+    
+    
+    
     {name:"Rice Flour", pack:"cs", par:"1"}
   ],
   sidney: [
@@ -375,7 +381,7 @@ const clearOrdersBtn = document.getElementById('clearOrdersBtn');
 const showOrderedBtn = document.getElementById('showOrderedBtn');
 const orderSummary = document.getElementById('orderSummary');
 const PHONE_NUMBER = '+16465761431';
-const STORAGE_KEY = 'restaurant-order-entry-v3';
+const STORAGE_KEY = 'restaurant-order-entry-v4';
 let showOrderedOnly = false;
 const { jsPDF } = window.jspdf;
 
@@ -406,9 +412,9 @@ function categorize(itemName, vendor){
   if(vendor === 'igf'){
     if(
       n.includes('anchovies') || n.includes('caperberries') || n.includes('capers') ||
-      n.includes('cherries, maraschino') || n.includes('cornichons') || n.includes('demi-glace') ||
+      n.includes('cherries, maraschino') || n.includes('cornichons') || n.includes('gherkins') || n.includes('demi-glace') ||
       n.includes('dijon') || n.includes('dolmas') || n.includes('dried cherries') ||
-      n.includes('gigandes') || n.includes('olives') || n.includes('hazelnut flour') ||
+      n.includes('gigandes') || n.includes('olives') || n.includes('cocktail onions') || n.includes('taramosalata') || n.includes('hazelnut flour') ||
       n.includes('phyllo') || n.includes('pine nuts') || n.includes('pita bread') ||
       n.includes('plum sauce') || n.includes('roasted red pepper') || n.includes('strawberry preserves') ||
       n.includes('almonds, sliced blanched') || n.includes('walnut halves')
@@ -420,17 +426,40 @@ function categorize(itemName, vendor){
 
   if(vendor === 'sidney') return 'Shelf';
 
-  if(n.includes('milk')||n.includes('cheese')||n.includes('cream')||n.includes('yogurt')||n.includes('butter')||n.includes('shrimp')||n.includes('salmon')||n.includes('chicken')||n.includes('lamb')||n.includes('mussel')||n.includes('pancetta')) return 'Cold';
-  if(n.includes('can')||n.includes('#10')||n.includes('jar')||n.includes('tin')) return 'Canned';
+  // Bar overrides
+  if(vendor === 'bar'){
+    if(n.includes('chicken stock')) return 'Shelf';
+  }
+
+  if(n.includes('milk')||n.includes('cheese')||n.includes('cream')||n.includes('yogurt')||n.includes('butter')||n.includes('shrimp')||n.includes('salmon')||n.includes('chicken')||n.includes('lamb')||n.includes('mussel')||n.includes('pancetta')||n.includes('peas')) return 'Cold';
+  if(n.includes('#10') || n.includes(' jar') || n.includes(', jar') || n.includes(' tin') || n.includes(', tin')) return 'Shelf';
   return 'Shelf';
 }
 
 function sectionStyle(type){
-  if(type === 'Cold' || type === 'Walk-in Cooler' || type === 'Walk-in') return 'background:#dbeafe';
-  if(type === 'Canned') return 'background:#fff3cd';
-  if(type === 'Freezer') return 'background:#e9d5ff';
-  if(type === 'Shelf') return 'background:#f3f4f6';
-  return 'background:#e5e7eb';
+  const map = {
+    'Shelf': 'background:#fef3c7',
+    'Walk-in Cooler': 'background:#dbeafe',
+    'Cold': 'background:#fee2e2',
+    'Walk-in': 'background:#d1fae5',
+    'Freezer': 'background:#e9d5ff',
+    
+    'Room Temp': 'background:#fef3c7'
+  };
+  return map[type] || 'background:#e5e7eb';
+}
+
+function sectionIcon(type){
+  const map = {
+    'Shelf': '📦',
+    'Walk-in Cooler': '🧊',
+    'Cold': '🥩',
+    'Walk-in': '🧊',
+    'Freezer': '❄️',
+    
+    'Room Temp': '📦'
+  };
+  return map[type] || '📁';
 }
 
 function getGroupsForVendor(vendor){
@@ -438,7 +467,7 @@ function getGroupsForVendor(vendor){
   if(vendor === 'sysco') return {'Shelf':[], 'Walk-in':[], 'Freezer':[]};
   if(vendor === 'igf') return {'Shelf':[], 'Walk-in':[], 'Freezer':[]};
   if(vendor === 'sidney') return {'Shelf':[]};
-  return {Cold:[], Canned:[], Shelf:[]};
+  return {Cold:[], Shelf:[]};
 }
 
 function loadInventory(vendor){
@@ -471,7 +500,8 @@ function loadInventory(vendor){
     if(groups[group].length === 0) return;
     const headerRow = document.createElement('tr');
     headerRow.className = 'section-row';
-    headerRow.innerHTML = `<td colspan="${isParType ? 5 : 4}" style="${sectionStyle(group)}">${group} (${groups[group].length})</td>`;
+    headerRow.dataset.section = group;
+    headerRow.innerHTML = `<td colspan="${isParType ? 5 : 4}" style="${sectionStyle(group)}"><div class="section-label"><div class="section-left"><span>${sectionIcon(group)}</span><span>${group} (${groups[group].length})</span></div><span class="section-caret">▼</span></div></td>`;
     tbody.appendChild(headerRow);
 
     groups[group].forEach(item => {
@@ -499,7 +529,9 @@ function loadInventory(vendor){
 
   restoreVendorOrders(vendor);
   bindOrderInputs();
+  bindSectionToggles();
   applyFilter();
+  expandSectionsForVisibleRows();
   updateOrderSummary();
 }
 
@@ -509,7 +541,8 @@ function renderSidney(data){
     if(item.isHeader){
       const headerRow = document.createElement('tr');
       headerRow.className = 'section-row';
-      headerRow.innerHTML = `<td colspan="4" style="background:#111;color:#fff">${item.name}</td>`;
+      headerRow.dataset.section = item.name;
+      headerRow.innerHTML = `<td colspan="4" style="background:#111;color:#fff"><div class="section-label"><div class="section-left"><span>🧂</span><span>${item.name}</span></div><span class="section-caret">▼</span></div></td>`;
       tbody.appendChild(headerRow);
       return;
     }
@@ -543,7 +576,9 @@ function applyFilter(){
     const hasOrder = orderInput && Number(orderInput.value) > 0;
     const matchesText = !q || txt.includes(q);
     const visible = matchesText && (!showOrderedOnly || hasOrder);
-    tr.style.display = visible ? '' : 'none';
+    const parentSection = tr.previousElementSibling && tr.previousElementSibling.classList.contains('section-row') ? tr.previousElementSibling : null;
+    const parentCollapsed = parentSection && parentSection.dataset.collapsed === 'true';
+    tr.style.display = visible && !parentCollapsed ? '' : 'none';
     if(visible) currentSectionHasVisibleRows = true;
   });
   if(lastSectionRow) lastSectionRow.style.display = currentSectionHasVisibleRows ? '' : 'none';
@@ -645,6 +680,38 @@ function bindOrderInputs(){
   });
 }
 
+function bindSectionToggles(){
+  tbody.querySelectorAll('.section-row').forEach(row => {
+    row.onclick = () => toggleSection(row);
+  });
+}
+
+function toggleSection(sectionRow){
+  const collapsed = sectionRow.dataset.collapsed === 'true';
+  sectionRow.dataset.collapsed = collapsed ? 'false' : 'true';
+  const caret = sectionRow.querySelector('.section-caret');
+  if(caret) caret.textContent = collapsed ? '▼' : '▶';
+
+  let next = sectionRow.nextElementSibling;
+  while(next && !next.classList.contains('section-row')){
+    next.style.display = collapsed ? '' : 'none';
+    next = next.nextElementSibling;
+  }
+}
+
+function expandSectionsForVisibleRows(){
+  const rows = [...tbody.querySelectorAll('.section-row')];
+  rows.forEach(sectionRow => {
+    let next = sectionRow.nextElementSibling;
+    let hasVisible = false;
+    while(next && !next.classList.contains('section-row')){
+      if(next.style.display !== 'none') hasVisible = true;
+      next = next.nextElementSibling;
+    }
+    if(hasVisible && sectionRow.dataset.collapsed === 'true') toggleSection(sectionRow);
+  });
+}
+
 function triggerUpdate(input){
   const row = input.closest('tr');
   const val = Math.max(0, Number(input.value || 0));
@@ -678,7 +745,10 @@ function init(){
     loadInventory(e.target.value);
   });
 
-  filterInput.addEventListener('input', applyFilter);
+  filterInput.addEventListener('input', () => {
+    applyFilter();
+    expandSectionsForVisibleRows();
+  });
 
   clearOrdersBtn.addEventListener('click', () => {
     tbody.querySelectorAll('.order').forEach(input => {
@@ -688,12 +758,14 @@ function init(){
     saveState();
     updateOrderSummary();
     applyFilter();
+    expandSectionsForVisibleRows();
   });
 
   showOrderedBtn.addEventListener('click', () => {
     showOrderedOnly = !showOrderedOnly;
     showOrderedBtn.textContent = `Show Ordered Only: ${showOrderedOnly ? 'On' : 'Off'}`;
     applyFilter();
+    expandSectionsForVisibleRows();
   });
 
   document.querySelector('#poForm').addEventListener('submit', e => {
