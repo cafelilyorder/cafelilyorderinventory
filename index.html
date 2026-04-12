@@ -158,8 +158,9 @@ const INVENTORY = {
     {name:"Sage, Hawaiian", pack:"#", minPar:"1/2 case", weekendPar:"1 case"},
     {name:"Eggs", pack:"cs", minPar:"15 dz", weekendPar:"30 dz"},
     {name:"Cream", pack:"cs", minPar:"1 cs", weekendPar:"2 cs"},
-    {name:"Raspberry Puree", pack:"cs", minPar:"1", weekendPar:"1"},
-    {name:"Blood Orange Puree", pack:"cs", minPar:"1", weekendPar:"1"},
+    {name:"Puree Raspberry", pack:"cs", minPar:"1", weekendPar:"1"},
+    {name:"Puree White Peach", pack:"cs", minPar:"1", weekendPar:"1"},
+    {name:"Puree Blood Orange", pack:"cs", minPar:"1", weekendPar:"1"},
     {name:"Red Jalapenos", pack:"1#", minPar:"1/2 case", weekendPar:"1 case"},
     {name:"Ginger", pack:"1#", minPar:"1/2 case", weekendPar:"1 case"},
     {name:"Seasonal Fruit for Burrata Salad", pack:"1 cs", minPar:"1/4 case", weekendPar:"1/2 case"},
@@ -195,10 +196,11 @@ const INVENTORY = {
     {name:"Sour Cream", pack:"4/5#cs", par:"1"},
     {name:"Whipped Cream", pack:"cs", par:"1"},
     {name:"Yogurt, Plain Lowfat", pack:"6/32oz", par:"1"},
-    {name:"Ciabatta Buns", pack:"cs", par:"1"},
+    {name:"Bread Ciabatta Buns", pack:"cs", par:"1"},
     {name:"Mayonnaise, Dukes", pack:"4/1gal", par:"1"},
     {name:"Cheese Grated Pecorino Romano", pack:"4/5#cs", par:"1"},
-    {name:"Panini Bread", pack:"cs", par:"1"},
+    {name:"Bread Panini", pack:"cs", par:"1"},
+    {name:"Bread Brioche (For Bread Pudding)", pack:"cs", par:"1"},
     {name:"Sundried Tomatoes", pack:"box", par:"1"},
     {name:"AP Flour", pack:"25#", par:"1"},
     {name:"Baking Powder", pack:"1/10#", par:"1"},
@@ -267,6 +269,7 @@ const INVENTORY = {
     {name:"Strawberry Preserves", pack:"jar", par:"2"},
     {name:"Carnaroli Rice", pack:"cs", par:"1"},
     {name:"Clam Juice", pack:"cs", par:"1"},
+    {name:"Puree Raspberry", pack:"cs", par:"1"},
     {name:"Pearl Couscous", pack:"bag", par:"1"},
     {name:"Dried Cherries", pack:"5# bag", par:"1"},
     {name:"Gaufrettes", pack:"cs", par:"1"},
@@ -432,7 +435,7 @@ function categorize(itemName, vendor){
     if(n.includes('chicken stock')) return 'Shelf';
   }
 
-  if(n.includes('milk')||n.includes('cheese')||n.includes('cream')||n.includes('yogurt')||n.includes('butter')||n.includes('shrimp')||n.includes('salmon')||n.includes('chicken')||n.includes('lamb')||n.includes('mussel')||n.includes('pancetta')||n.includes('peas')) return 'Cold';
+  if(vendor !== 'bar' && (n.includes('milk')||n.includes('cheese')||n.includes('cream')||n.includes('yogurt')||n.includes('butter')||n.includes('shrimp')||n.includes('salmon')||n.includes('chicken')||n.includes('lamb')||n.includes('mussel')||n.includes('pancetta')||n.includes('peas'))) return 'Cold';
   if(n.includes('#10') || n.includes(' jar') || n.includes(', jar') || n.includes(' tin') || n.includes(', tin')) return 'Shelf';
   return 'Shelf';
 }
@@ -538,24 +541,43 @@ function loadInventory(vendor){
 
 function renderSidney(data){
   tableHead.innerHTML = '<th>Item</th><th>Pack Size</th><th>Par</th><th>Order</th>';
+
+  const groups = [];
+  let currentGroup = null;
+
   data.forEach(item => {
     if(item.isHeader){
-      const headerRow = document.createElement('tr');
-      headerRow.className = 'section-row';
-      headerRow.dataset.section = item.name;
-      headerRow.innerHTML = `<td colspan="4" style="background:#111;color:#fff"><div class="section-label"><div class="section-left"><span>🧂</span><span>${item.name}</span></div><span class="section-caret">▼</span></div></td>`;
-      tbody.appendChild(headerRow);
-      return;
+      currentGroup = { title: item.name, items: [] };
+      groups.push(currentGroup);
+    } else {
+      if(!currentGroup){
+        currentGroup = { title: 'Other', items: [] };
+        groups.push(currentGroup);
+      }
+      currentGroup.items.push(item);
     }
-    const tr = document.createElement('tr');
-    tr.dataset.itemName = item.name;
-    tr.innerHTML = `
-      <td data-label="Item">${item.name}</td>
-      <td data-label="Pack Size">${item.pack ?? ''}</td>
-      <td data-label="Par">${item.par ?? ''}</td>
-      <td data-label="Order"><div class="qty"><button type="button" class="dec">-</button><input type="number" class="order" value="0" min="0" step="1" readonly><button type="button" class="inc">+</button></div></td>
-    `;
-    tbody.appendChild(tr);
+  });
+
+  groups.forEach(group => {
+    group.items.sort((a, b) => a.name.localeCompare(b.name));
+
+    const headerRow = document.createElement('tr');
+    headerRow.className = 'section-row';
+    headerRow.dataset.section = group.title;
+    headerRow.innerHTML = `<td colspan="4" style="background:#111;color:#fff"><div class="section-label"><div class="section-left"><span>🧂</span><span>${group.title} (${group.items.length})</span></div><span class="section-caret">▼</span></div></td>`;
+    tbody.appendChild(headerRow);
+
+    group.items.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.dataset.itemName = item.name;
+      tr.innerHTML = `
+        <td data-label="Item">${item.name}</td>
+        <td data-label="Pack Size">${item.pack ?? ''}</td>
+        <td data-label="Par">${item.par ?? ''}</td>
+        <td data-label="Order"><div class="qty"><button type="button" class="dec">-</button><input type="number" class="order" value="0" min="0" step="1" readonly><button type="button" class="inc">+</button></div></td>
+      `;
+      tbody.appendChild(tr);
+    });
   });
 }
 
